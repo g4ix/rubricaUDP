@@ -19,31 +19,34 @@ fn main() -> std::io::Result<()> {
         // Il metodo recv_from() restituisce una tupla con il numero di byte ricevuti e l'indirizzo del mittente
         let (amt, src) = socket.recv_from(&mut buf)?;
         // devo salvare la persona nell'array
-        
-        let p = str::from_utf8(&buf[..amt]).unwrap();
-        // println!("Hai inviato {}", p);
-        // distinguo nome e cognome da p
-        let mut nome = String::new();
-        let mut cognome = String::new();
-        let mut i = 0;
-        for c in p.chars() {
-            if c == ' ' {
-                i = 1;
-            } else {
-                if i == 0 {
-                    nome.push(c);
-                } else {
-                    cognome.push(c);
-                }
+        let recv = str::from_utf8(&buf[..amt]).unwrap();
+
+        if recv == "list" {
+            // invio la lista delle persone
+            println!("Lista delle persone:");
+            for persona in persone.iter() {
+                println!("{} {}", persona.nome, persona.cognome);
             }
+            continue;
         }
+
+        println!("ricevuto: {}", recv);
+        // splitto la stringa ricevuta in prossimità del carratere '+
+        let split = recv.split('+');
+
+        // estraggo il nome e il cognome con un iteratore
+        let v: Vec<&str> = split.collect();
+        let nome = v[0].to_owned();
+        let cognome = v[1].to_owned();
+        
+
+
         // inserisco la persona nell'array
         let persona = Persona {
             nome: nome,
             cognome: cognome,
         };
         persone.push(persona);
-        
 
 
         // ridichiaro buf come slice di buf di dimensione amt che è il numero di byte ricevuti

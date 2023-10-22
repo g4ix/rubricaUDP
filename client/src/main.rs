@@ -1,5 +1,5 @@
 use std::net::UdpSocket;
-use std::env;
+//use std::env;
 use std::str;
 use std::io::{self, BufRead};
 
@@ -35,23 +35,54 @@ fn split_line(input: &str) -> Vec<String> {
     result
 }
 
+fn split_line2(input: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let words: Vec<&str> = input.split("--").collect();
+
+    let command = words[0].to_string();
+    result.push(command);
+
+    for pair in words {
+        if let Some(value) = extract_value(pair) {
+            result.push(value);
+        }
+    }
+    result.retain(|value| !value.is_empty());
+    result
+}
+
+fn extract_value(pair: &str) -> Option<String> {
+    let parts: Vec<&str> = pair.splitn(2, ' ').collect();
+    if parts.len() == 2 {
+        Some(parts[1].trim().to_string())
+    } else {
+        None
+    }
+}
 
 // inserimento di una persona
-fn client_insert(hostname: &str, persona: Persona, socket: UdpSocket) -> std::io::Result<()> {
+fn client_insert(hostname: &str, persona: Persona, socket: &UdpSocket) -> std::io::Result<()> {
+
+    let mut name = persona.nome;
+    let surname = persona.cognome;
+    name.push('+');
+    name.push_str(&surname);
 
      // invio la stringa digitata da linea di comando
-     socket.send_to(persona.nome.as_bytes(), hostname.to_string() + &":2000").expect("Error on send");
-     socket.send_to(persona.cognome.as_bytes(), hostname.to_string() + &":2000").expect("Error on send");
-     // attendo la risposta
-     let mut buf = [0; 2048];
-     let (amt, _src) = socket.recv_from(&mut buf)?;
-     // stampo la risposta
-     let echo = str::from_utf8(&buf[..amt]).unwrap();
-     println!("Hai inviato {}", echo);
+     socket.send_to(name.as_bytes(), hostname.to_string() + &":2000").expect("Error on send");
+    
      Ok(())
 }
 
-// visualizzazione della lista delle persone
+// visualizzazione della lista delle persone 
+// come si fa a ricevere la lista delle persone dal server?
+fn client_list(hostname: &str, socket: &UdpSocket) -> std::io::Result<()> {
+    
+        // invio il comando list al server
+        socket.send_to("list".as_bytes(), hostname.to_string() + &":2000").expect("Error on send");
+        
+        Ok(())
+}
 
 
 fn main() -> std::io::Result<()> {
@@ -63,30 +94,36 @@ fn main() -> std::io::Result<()> {
     for line in stdin.lock().lines() {
 
         let line = line.unwrap();
-        println!("Hai digitato: {}", line);
+        //println!("Hai digitato: {}", line);
         if &line == "BYE" {
             break;
         }
 
-        let args = split_line(&line);
+        let args = split_line2(&line);
        
         let command = &args[0];
-        let name = args[1].to_string();
-        let surname = args[2].to_string();
-        let hostname = args[3].to_string();
+
+        if command=="insert " {
+            let name = args[1].to_string();
+            let surname = args[2].to_string();
+            let hostname = args[3].to_string();
 
 
-        let persona = Persona {
-            nome: name.to_string(),
-            cognome: surname.to_string(),
-        };
+            let persona = Persona {
+                nome: name.to_string(),
+                cognome: surname.to_string(),
+            };
 
-
-        if command=="insert" {
-            if let Err(err) = client_insert(&hostname, persona, socket) {
+            if let Err(err) = client_insert(&hostname, persona, &socket) {
                eprintln!("Errore: {:?}", err);
             } else {
             println!("Inserimento avvenuto con successo");
+            }
+        }
+        if command=="list " {
+            let hostname = args[1].to_string();
+            if let Err(err) = client_list(&hostname, &socket) {
+               eprintln!("Errore: {:?}", err);
             }
         }
     }
