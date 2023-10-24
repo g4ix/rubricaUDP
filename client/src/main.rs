@@ -13,52 +13,53 @@ struct Persona {
 // splitto la linea di comando per ottenere comando, nome, cognome e hostname
 fn split_line(input: &str) -> Vec<String> {
     let mut result = Vec::new();
-
-    if let Some(name_index) = input.find("--name") {
-        if let Some(surname_index) = input.find("--surname") {
-            if let Some(server_index) = input.find("--server") {
-                let command = input[..name_index].trim();
-                let name = input[name_index + 7..surname_index].trim();
-                let surname = input[surname_index + 9..server_index].trim();
-                let hostname = input[server_index + 9..].trim();
-
-                result.push(command.to_string());
-                result.push(name.to_string());
-                result.push(surname.to_string());
-                result.push(hostname.to_string());
-
-                return result;
-            }
-        }
-    }
-
-    result
-}
-
-fn split_line2(input: &str) -> Vec<String> {
-    let mut result = Vec::new();
     let words: Vec<&str> = input.split("--").collect();
 
+    // println!("words: {:?}", words);
+    // words: ["insert ", "name Giulio ", "surname La Torre ", "server localhost"]
+
+    // il comando è sempre il primo elemento
     let command = words[0].to_string();
+    if command != "list " && command != "insert " {
+        panic!("Comando non valido");
+    }
     result.push(command);
 
-    for pair in words {
-        if let Some(value) = extract_value(pair) {
-            result.push(value);
+    //inizializzo le stringhe come vuote
+    let mut name = String::new();
+    let mut surname = String::new();
+    let mut hostname = String::new();
+
+    // faccio un ciclo for sugli altri elementi e splitto per spazio
+    for word in  words[1..].iter() {
+        let pair: Vec<&str> = word.split(' ').collect(); // splitto per spazio
+        
+        if pair[0] == "name" {
+            // devo riunire tutte le stringhe in una sola
+            name = pair[1].to_string();
+            for i in 2..pair.len()-1 {
+                name.push(' ');
+                name.push_str(pair[i]);
+            }
+        } else if pair[0] == "surname" {
+            surname = pair[1].to_string();
+            for i in 2..pair.len()-1 {
+                surname.push(' ');
+                surname.push_str(pair[i]);
+            }
+        } else if pair[0] == "server" {
+            hostname = pair[1].to_string();
+        } else {
+            panic!("Comando non valido");
         }
     }
-    result.retain(|value| !value.is_empty());
+    result.push(name);
+    result.push(surname);
+    result.push(hostname);
+    //println!("result: {:?}", result);
     result
 }
 
-fn extract_value(pair: &str) -> Option<String> {
-    let parts: Vec<&str> = pair.splitn(2, ' ').collect();
-    if parts.len() == 2 {
-        Some(parts[1].trim().to_string())
-    } else {
-        None
-    }
-}
 
 // inserimento di una persona
 fn client_insert(hostname: &str, persona: Persona, socket: &UdpSocket) -> std::io::Result<()> {
@@ -99,7 +100,7 @@ fn main() -> std::io::Result<()> {
             break;
         }
 
-        let args = split_line2(&line);
+        let args = split_line(&line);
        
         let command = &args[0];
 
@@ -121,7 +122,7 @@ fn main() -> std::io::Result<()> {
             }
         }
         if command=="list " {
-            let hostname = args[1].to_string();
+            let hostname = args[3].to_string();
             if let Err(err) = client_list(&hostname, &socket) {
                eprintln!("Errore: {:?}", err);
             }
